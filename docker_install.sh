@@ -8,13 +8,13 @@
 # 5) Fix variable names (done)
 # 6) Given all inputs create a Dockerfile so the user can use it for the future
 # 7) Add code to show all running docker containers names (done)
-# 8) Find a way to add concatenate commands to base docker run command
+# 8) Find a way to add concatenate commands to base docker run command (done)
 # 9) The lsof commands will not work on windows
 #   a) Maybe distinguish different OS at the beginning and then have different commands
 #   b) or find a universal command that works on both 
 # 10) Improve error handling for docker commands
 # 11) Add durable sys support (done)
-# 12) Add error trapping function (does not work when given wrong repository or version)
+# 12) Add error trapping function (does not work when given wrong repository or version) (done)
 # 13) ubuntu uses bash, linux uses sh. Find a way to make both work. 
 # 14) Add users if they would like to add anything
 
@@ -97,7 +97,7 @@ CheckRepository()
         fi
     done
 
-    echo "which product do you want to install? Copy a path listed above or select number"
+    echo "which product do you want to install? Copy a path listed above or select number. "
     read product
 
     # If user enter number, match it to the the repository 
@@ -146,7 +146,7 @@ CheckTag()
         fi
     done
 
-    echo "which version do you want to install?"
+    echo "which version do you want to install? Type '""back""' to return to list of repositories."
     read version
 
     # If user enter number, match it to the the version
@@ -154,12 +154,21 @@ CheckTag()
     then
         version=${kits[$version]}
     fi
+    
+
+    if [[ $version == "back" ]]
+    then
+        unset version
+        CheckRepository
+        CheckTag
+    
+    fi
     docker-ls tag --registry https://containers.intersystems.com $product:$version
     if [[ $? -eq 1 ]]
     then
         echo "version does not exist. Try again"
         CheckTag
-    fi
+    fi 
     repository=" containers.intersystems.com/"${product}$":"${version}
     echo $repository
     
@@ -278,40 +287,29 @@ MountDurableSYS()
    fi
 }
 
+# Runs docker run command with all the previous concatenated parameters
 CreateContainer()
 {
     dockerrun="$dockerrun$repository"
     echo "Running: "${dockerrun}
-    result=$($dockerrun 2>&1)
-        #result=$(docker container run -d --name $name -p $superport:51773 -p $webport:52773 -v $hostvolume:$dockervolume --env ISC_DATA_DIRECTORY=$durablesys $repository 2>&1)
-    
-    #count=$(grep -c Error <<< "$result")
-    #echo "This is the count: "
-    #echo $count
+
+    #Runs docker command stored in $dockerrun variable
+    eval $dockerrun
     rez=$?
+
+    # If successful display tools to access container and IRIS instance. If unsuccessful, docker will display the error.
     if [ $rez -eq 0 ]
-    #if [[ $? -eq 0 && $count -eq 0 ]]
     then
-        echo "This is the result: "
-        echo $rez
-        #echo $result
-        dockerid=$result
-        name=$(docker inspect $dockerid --format='{{.Name}}'| tr -d "/" 2>&1)
         hostname=$(hostname)
         echo $'\nAccess the SMP at http://'$hostname':'$webport'/csp/sys/UtilHome.csp'
-        echo $'\nEnter 'docker exec -it "$name" sh' to access the terminal'
+        echo $'\nTo access the container terminal: 'docker exec -it "$name" sh' '
         echo $'\nTo stop the container run: docker stop '"$name"''
         echo $'\nTo remove the container run: docker rm '$name'';
-
-        echo echo $'\nThis is the result: \n '$result''
-    else
-        echo "This is the result: "
-        echo $rez
-        echo $'\nCould not start the container due to the following error: \n '$result''
-        exit
     fi
 }
 
+
+#Future plans are to try an automate dockerls installation.
 installdockerls()
 {
     if ! command -v docker-ls
