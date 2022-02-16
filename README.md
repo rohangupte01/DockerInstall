@@ -4,3 +4,6 @@ This script provides an api to easily create docker containers with intersystems
 https://github.com/mayflower/docker-ls
  
  
+To run the script, change to the directory where the script is and enter: ./docker_install.sh 
+
+Currently only support on mac
