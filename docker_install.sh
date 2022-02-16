@@ -24,7 +24,7 @@
 #!/bin/bash
 CheckPrereqs()
 {
-    myarr="zero"
+    myarr=""
 
     if [ ! -x "$(command -v docker)" ];
     then
@@ -41,18 +41,34 @@ CheckPrereqs()
     then
         #myarr+="Please install docker-ls before running this script. You can visit https://github.com/mayflower/docker-ls for installation instructions"
         myarr[${#myarr[@]}]="Please install docker-ls before running this script. You can visit https://github.com/mayflower/docker-ls for installation instructions"
+        dockerls=0
         #include possiblity of install this for the user
         #installdockerls()
     fi 
 
-    if [[ ${myarr[@]} != "zero" ]]
+    if [[ ${myarr[@]} != "" ]]
     then
         echo "Prerequisites missing in order for script to run":
         for value in "${myarr[@]}"
         do
             echo $value
         done
-        exit
+
+        which -s brew
+        if [[ ($dockerls == 0)  && ($? == 0 ) ]]
+        then
+            echo "You have brew installed. This script can install docker-ls for you via brew. Type ""yes"" if you would like the script to install docker-ls"
+            read answer
+            if [[ $answer == "yes" ]]
+            then
+                brew install docker-ls
+            else 
+                echo "Please visit https://github.com/mayflower/docker-ls for docker-ls installation instuctions"
+                exit
+            fi
+        else   
+            exit
+        fi
     fi
 }
 
@@ -305,27 +321,6 @@ CreateContainer()
         echo $'\nTo access the container terminal: 'docker exec -it "$name" sh' '
         echo $'\nTo stop the container run: docker stop '"$name"''
         echo $'\nTo remove the container run: docker rm '$name'';
-    fi
-}
-
-
-#Future plans are to try an automate dockerls installation.
-installdockerls()
-{
-    if ! command -v docker-ls
-    then
-        echo "Would you like the script to install docker-ls? It is needed to access the intersystems docker repositories. Please enter yes or no"
-        read answer
-        if [[ $answer == "yes" ]]
-        then
-            #add mechanism to automatically download docker-ls if it doesn't exist on the system
-            echo "Installing docker-ls command"
-            git clone https://github.com/mayflower/docker-ls.git
-            docker build -t docker-ls .
-        else 
-            echo "Please install docker-ls before running the script"
-            exit
-        fi 
     fi
 }
 
