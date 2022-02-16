@@ -215,7 +215,7 @@ CheckPorts()
     do 
         echo $'\nsuper server port?'
         read superport
-        myarr=($(lsof -PiTCP -sTCP:LISTEN | tr -d '*:'| tr -d 'localhost'| awk '{print $9}'))
+        myarr=($(lsof -PiTCP -sTCP:LISTEN | tr -d '*:'| tr -d 'localhost'| sed -e 's/\[[^][]*\]//g' | awk '{print $9}'))
         for port in ${myarr[@]}
         do 
             if ! [[ $superport =~ $re && "$superport" -le "$maxport" ]];
@@ -280,20 +280,21 @@ MountDurableSYS()
 
 CreateContainer()
 {
-
     dockerrun="$dockerrun$repository"
     echo "Running: "${dockerrun}
     result=$($dockerrun 2>&1)
         #result=$(docker container run -d --name $name -p $superport:51773 -p $webport:52773 -v $hostvolume:$dockervolume --env ISC_DATA_DIRECTORY=$durablesys $repository 2>&1)
     
-    echo "This is the result: "
-    echo $?
-    count=$(grep -c Error <<< "$result")
-    echo "This is the count: "
-    echo $count
-    if [[ $? -eq 0 && $count -eq 0 ]]
+    #count=$(grep -c Error <<< "$result")
+    #echo "This is the count: "
+    #echo $count
+    rez=$?
+    if [ $rez -eq 0 ]
+    #if [[ $? -eq 0 && $count -eq 0 ]]
     then
-        echo $result
+        echo "This is the result: "
+        echo $rez
+        #echo $result
         dockerid=$result
         name=$(docker inspect $dockerid --format='{{.Name}}'| tr -d "/" 2>&1)
         hostname=$(hostname)
@@ -301,7 +302,11 @@ CreateContainer()
         echo $'\nEnter 'docker exec -it "$name" sh' to access the terminal'
         echo $'\nTo stop the container run: docker stop '"$name"''
         echo $'\nTo remove the container run: docker rm '$name'';
+
+        echo echo $'\nThis is the result: \n '$result''
     else
+        echo "This is the result: "
+        echo $rez
         echo $'\nCould not start the container due to the following error: \n '$result''
         exit
     fi
