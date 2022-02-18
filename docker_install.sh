@@ -313,16 +313,20 @@ CreateContainer()
     eval $dockerrun
     rez=$?
 
+
     # If successful display tools to access container and IRIS instance. If unsuccessful, docker will display the error.
     if [ $rez -eq 0 ]
     then
+        containerid=$(docker container ps | awk '{print $1}' | awk 'NR==2')
         hostname=$(hostname)
+        containername=$(docker inspect --format="{{.Name}}" ''$containerid'' | tr -d "/")
         echo $'\nAccess the SMP at http://'$hostname':'$webport'/csp/sys/UtilHome.csp'
-        echo $'\nTo access the container terminal: 'docker exec -it "$name" sh' '
-        echo $'\nTo stop the container run: docker stop '"$name"''
-        echo $'\nTo remove the container run: docker rm '$name'';
+        echo $'\nTo access the container terminal: 'docker exec -it "$containername" sh' '
+        echo $'\nTo stop the container run: docker stop '"$containername"''
+        echo $'\nTo remove the container run: docker rm '$containername'';
     fi
 }
+
 
 
 #Check if system has all the prerequisites to run this script
