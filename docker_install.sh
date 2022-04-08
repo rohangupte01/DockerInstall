@@ -1,51 +1,31 @@
-#To-do 
-# 1) Mechanism to automatically download docker-ls if it doesn't exist
-# 2) More customization for docker container
-#   a) instance name (done)
-#   b) mounting a volume (done)
-# 3) Option to use a dockerfile [Although this makes the script pretty much useless]
-# 4) Optimize loops 
-# 5) Fix variable names (done)
-# 6) Given all inputs create a Dockerfile so the user can use it for the future
-# 7) Add code to show all running docker containers names (done)
-# 8) Find a way to add concatenate commands to base docker run command (done)
-# 9) The lsof commands will not work on windows
-#   a) Maybe distinguish different OS at the beginning and then have different commands
-#   b) or find a universal command that works on both 
-# 10) Improve error handling for docker commands
-# 11) Add durable sys support (done)
-# 12) Add error trapping function (does not work when given wrong repository or version) (done)
-# 13) ubuntu uses bash, linux uses sh. Find a way to make both work. 
-# 14) Add users if they would like to add anything
-
-
-
-
 #!/bin/bash
+
+
+# Check to make sure the system has all the prerequistes needed to run the script
 CheckPrereqs()
 {
     myarr=""
 
+    # Need docker installed
     if [ ! -x "$(command -v docker)" ];
     then
         myarr="Please install docker before running this script"
     fi
 
+    # Need git installed
     if [ ! -x "$(command -v git)" ];
     then
-        #myarr+="Please install git before running this script"
         myarr[${#myarr[@]}]="Please install git before running this script"
     fi
 
+    # Need docker-ls installed
     if [ ! -x "$(command -v docker-ls)" ];
     then
-        #myarr+="Please install docker-ls before running this script. You can visit https://github.com/mayflower/docker-ls for installation instructions"
         myarr[${#myarr[@]}]="Please install docker-ls before running this script. You can visit https://github.com/mayflower/docker-ls for installation instructions"
         dockerls=0
-        #include possiblity of install this for the user
-        #installdockerls()
     fi 
 
+    # Tell user which pre requisites they are missing
     if [[ ${myarr[@]} != "" ]]
     then
         echo "Prerequisites missing in order for script to run":
@@ -54,6 +34,7 @@ CheckPrereqs()
             echo $value
         done
 
+        # Check if homebrew is installed. If so, then offer the user installation of docker-ls via homebrew from this script.
         which -s brew
         if [[ ($dockerls == 0)  && ($? == 0 ) ]]
         then
@@ -72,9 +53,7 @@ CheckPrereqs()
     fi
 }
 
-# Add numbers next to the products so users can select the number instead of typing the entire product
-# The docker commands reports everything on one line, need a way to break up the line and read each 
-#   product into the array
+# List out InterSystems Repository
 CheckRepository() 
 {
     re='^[0-9]+$'
@@ -121,15 +100,22 @@ CheckRepository()
     then
         product=${kits[$product]}
     fi
+
     echo $product
     result=$(docker-ls tags --registry https://containers.intersystems.com $product 2>&1)
+
+
+# Check if repo exists, if not call CheckRepository again and have user reselect 
     if [[ $? -eq 1 ]]
     then 
         echo $result
         CheckRepository
     fi
+   
 }
 
+
+# List tags of selected product
 CheckTag()
 {
     re='^[0-9]+$'
@@ -152,7 +138,7 @@ CheckTag()
                 fi
             done
 
-            # Print out list of repositories 
+            # Print out list of versions
             if [ $bad -eq 0 ]
             then 
                 kits[$i]=$kit
@@ -170,26 +156,64 @@ CheckTag()
     then
         version=${kits[$version]}
     fi
-    
 
+    #Check if user wants to go back to Repository list
     if [[ $version == "back" ]]
     then
-        unset version
-        CheckRepository
-        CheckTag
-    
+       back=1
     fi
+
     docker-ls tag --registry https://containers.intersystems.com $product:$version
+
+    # Check if user input to see if it's a valid version
     if [[ $? -eq 1 ]]
     then
-        echo "version does not exist. Try again"
-        CheckTag
-    fi 
+        if [[ $back -eq 1 ]]
+        then 
+            unset version
+            CheckRepository
+            CheckTag
+        else 
+            echo "version does not exist. Try again"
+            CheckTag
+        fi
+    else
+        echo "Are you sure you'd like to install $version?. Enter 'yes' to continue, or 'no' to return back to versions"
+        read cont
+        echo $cont
+        t=0
+
+        while [ $t -eq 0 ]
+        do
+            if [ $cont == "yes" ]
+            then
+            t=1
+            docker-ls tag --registry https://containers.intersystems.com $product:$version
+                if [[ $? -eq 1 ]]
+                then
+                    echo "version does not exist. Try again"
+                    CheckTag
+                    exit
+                fi 
+                repository=" containers.intersystems.com/"${product}$":"${version}
+                echo $repository
+            elif  [ $cont == "no" ]
+            then 
+                t=1
+                CheckTag
+            else 
+                echo "Please enter yes or no"
+                read cont
+            fi 
+        done
+    fi
+
     repository=" containers.intersystems.com/"${product}$":"${version}
     echo $repository
     
 }
 
+# Check names of current containers on the system
 CheckName()
 {
     same=0
@@ -204,6 +228,7 @@ CheckName()
         echo $'\nContainer name? (Leave blank for random name provided by docker)'
         read name
 
+        # Use default name provided by docker
         if [ -z "$name" ]
         then    
             echo $'\nUsing a default docker name'
@@ -230,6 +255,9 @@ CheckName()
     fi
 }
 
+
+# Ask user to enter superserver and webserver ports
+# Check that the ports selected are not already in-use
 CheckPorts()
 {
     maxport=65535
@@ -285,6 +313,8 @@ CheckPorts()
     echo $dockerrun
 }
 
+
+# Ask user if they'd like to mount a DurableSYS volume
 MountDurableSYS()
 {
     echo "Mount a volume as Durable SYS? (yes or no)"
@@ -299,14 +329,38 @@ MountDurableSYS()
     
         echo "full path of durablesys in container (/Volume/path)"
         read durablesys
-        dockerrun="${dockerrun} -v $hostvolume:$dockervolume --env ISC_DATA_DIRECTORY=$durablesys"
+        dockerrun="${dockerrun} --volume $hostvolume:$dockervolume --env ISC_DATA_DIRECTORY=$durablesys"
+
+        echo "If license key is not in the durablesys path, would you like to copy it from an different directory? Enter 'yes' or 'no' "
+        read keyanswer
+        if [[ "$keyanswer" == "yes" ]]
+        then 
+            CopyLicenseKey
+        fi
+    else
+         dockerrun="$dockerrun$repository"
    fi
+}
+
+
+#If user has a LicenseKey to enter
+CopyLicenseKey()
+{
+    dockerrun="$dockerrun$repository"
+    echo "Please make sure key is called: 'iris.key' "
+    echo "please enter the full path including the key file name to copy from: "
+    read keypath
+
+    cp -f $keypath $hostvolume
+            
+    dockerrun="${dockerrun} --key '$dockervolume/iris.key'"
+
+
 }
 
 # Runs docker run command with all the previous concatenated parameters
 CreateContainer()
 {
-    dockerrun="$dockerrun$repository"
     echo "Running: "${dockerrun}
 
     #Runs docker command stored in $dockerrun variable
@@ -315,15 +369,23 @@ CreateContainer()
 
 
     # If successful display tools to access container and IRIS instance. If unsuccessful, docker will display the error.
+
+    #find way to handle silent failures. run the inspect for status
     if [ $rez -eq 0 ]
     then
-        containerid=$(docker container ps | awk '{print $1}' | awk 'NR==2')
+        containerid=$(docker container ps -a| awk '{print $1}' | awk 'NR==2')
+        status=$(docker inspect --format="{{.State.Status}}" ''$containerid'')
         hostname=$(hostname)
-        containername=$(docker inspect --format="{{.Name}}" ''$containerid'' | tr -d "/")
-        echo $'\nAccess the SMP at http://'$hostname':'$webport'/csp/sys/UtilHome.csp'
-        echo $'\nTo access the container terminal: 'docker exec -it "$containername" sh' '
-        echo $'\nTo stop the container run: docker stop '"$containername"''
-        echo $'\nTo remove the container run: docker rm '$containername'';
+        if [[ "$status" == "running" ]]
+        then
+            containername=$(docker inspect --format="{{.Name}}" ''$containerid'' | tr -d "/")
+            echo $'\nAccess the SMP at http://'$hostname':'$webport'/csp/sys/UtilHome.csp'
+            echo $'\nTo access the container terminal: 'docker exec -it "$containername" sh' '
+            echo $'\nTo stop the container run: docker stop '"$containername"''
+            echo $'\nTo remove the container run: docker rm '$containername'';
+        else
+            echo "Error creating container. Run 'docker logs '$containerid'' for more information"
+        fi
     fi
 }
 
