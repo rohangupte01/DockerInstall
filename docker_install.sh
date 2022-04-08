@@ -12,12 +12,6 @@ CheckPrereqs()
         myarr="Please install docker before running this script"
     fi
 
-    # Need git installed
-    if [ ! -x "$(command -v git)" ];
-    then
-        myarr[${#myarr[@]}]="Please install git before running this script"
-    fi
-
     # Need docker-ls installed
     if [ ! -x "$(command -v docker-ls)" ];
     then
@@ -327,7 +321,7 @@ MountDurableSYS()
         echo "volume location to be mapped in container?"
         read dockervolume
     
-        echo "full path of durablesys in container (/Volume/path)"
+        echo "full path of durablesys folder in container (/path/folder_name)"
         read durablesys
         dockerrun="${dockerrun} --volume $hostvolume:$dockervolume --env ISC_DATA_DIRECTORY=$durablesys"
 
