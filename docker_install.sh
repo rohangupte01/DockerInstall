@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 # Check to make sure the system has all the prerequistes needed to run the script
 CheckPrereqs()
 {
@@ -177,6 +176,7 @@ CheckTag()
         echo $cont
         t=0
 
+        # Check user response and either go back to CheckTag or add product and version to repository variable
         while [ $t -eq 0 ]
         do
             if [ $cont == "yes" ]
@@ -251,7 +251,8 @@ CheckName()
 
 
 # Ask user to enter superserver and webserver ports
-# Check that the ports selected are not already in-use
+# Check that the ports selected are not already in-use or out of range
+# May need to be sudo to access port information 
 CheckPorts()
 {
     maxport=65535
@@ -337,7 +338,7 @@ MountDurableSYS()
 }
 
 
-#If user has a LicenseKey to enter
+#Copy license key from exernal directory to the durablesys directory on local machine
 CopyLicenseKey()
 {
     dockerrun="$dockerrun$repository"
@@ -363,8 +364,6 @@ CreateContainer()
 
 
     # If successful display tools to access container and IRIS instance. If unsuccessful, docker will display the error.
-
-    #find way to handle silent failures. run the inspect for status
     if [ $rez -eq 0 ]
     then
         containerid=$(docker container ps -a| awk '{print $1}' | awk 'NR==2')
