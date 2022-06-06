@@ -332,8 +332,9 @@ MountDurableSYS()
         then 
             CopyLicenseKey
         fi
+        dockerrun="$dockerrun$repository"
     else
-         dockerrun="$dockerrun$repository"
+        dockerrun="$dockerrun$repository"
    fi
 }
 
